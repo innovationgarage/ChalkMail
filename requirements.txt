@@ -1,0 +1,9 @@
+google-cloud-vision
+google-api-python-client
+opencv-python
+httplib2
+oauth2client
+requests
+numpy==1.11.0
+pandas
+scikit-image
