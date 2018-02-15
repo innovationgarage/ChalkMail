@@ -14,8 +14,6 @@ This script reads the raw data ffrom Google drawing, and prepares them as traini
 """
 
 def main():
-    n_samples = 9000
-    transpose_probability = 0.5
     drawing_type = 'envelope'
     path_to_images = 'envelope/images/'
     path_to_labels = 'envelope/labels/'
@@ -31,7 +29,7 @@ def main():
         for i, drawing in enumerate(df.drawing.values):
             label = '%s.%d'%(drawing_type, i)
             try:
-                img = draw(drawing, label, transpose_probability)
+                img = draw(drawing, label)
                 img = perform_augmentation(img)
                 save_image(img, label)
                 (h, w) = img.shape
@@ -40,31 +38,8 @@ def main():
 #                draw_bbox(img, bg_val=0)
             except:
                 print 'drawing %s failed!'%label
-                
-    # perform_augmentation(n_samples, source_dir=path_to_images)
-
-#     with open('envelope/labels/augmented_labels.csv', 'w') as f:
-#         f.write('filename,width,height,class,xmin,ymin,xmax,ymax\n')
-#         for image_name in os.listdir(os.path.join(path_to_images, 'output')):
-# #            try:
-#             image = Image.open(os.path.join(path_to_images, 'output', image_name))
-#             image_array = np.array(image).astype('uint8')
-#             (h, w, _) = image_array.shape
-#             xmin, xmax, ymin, ymax = get_bbox(image_array[:,:,0], bg_val=255)
-#             draw_bbox(image_array[:,:,0], bg_val=255)
-#             f.write('%s,%d,%d,%s,%d,%d,%d,%d\n'%(image_name.split('.JPEG')[0],w,h,drawing_type,xmin,ymin,xmax,ymax))
-#             # except:
-#             #     print (image_name, ' is not an image dude!')
     
-# def perform_augmentation(n_samples, source_dir):
-#     p = Augmentor.Pipeline(source_dir)
-#     p.flip_left_right(probability=0.4)
-#     p.flip_top_bottom(probability=0.4)
-#     p.resize(probability=0.4, width=600, height=600, resample_filter='ANTIALIAS')
-#     p.rotate(probability=0.4, max_left_rotation=15, max_right_rotation=15)
-#     p.sample(n_samples)
-    
-def draw(drawing, label, transpose_probability, pad=10):
+def draw(drawing, label, pad=10):
     print 'drawing %s'%label
     rows = [drawing[i][0] for i in range(len(drawing))]
     cols = [drawing[i][1] for i in range(len(drawing))]
@@ -124,7 +99,17 @@ def draw_stroke(stroke, img):
     col = stroke[1]
     for i in range(len(row)-1):
         rr, cc, val = line_aa(row[i], col[i], row[i+1], col[i+1])
-        img[rr, cc] = val * 255
+#        img[rr, cc] = val * 255
+        img[rr, cc] = (1-val)*img[rr, cc]
+
+def draw_strokes(strokes, img):
+    draw = ImageDraw.Draw(img)
+    for stroke in strokes:
+        row = stroke[0]
+        col = stroke[1]
+        for i in range(len(row)-1):
+            draw.line((row[i], col[i], row[i+1], col[i+1]), fill=50, width=10)
+    return img
 
 def get_bbox(img, bg_val=0, pad=0):
     non_zeros = np.where(img!=bg_val)
