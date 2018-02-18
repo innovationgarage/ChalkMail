@@ -6,6 +6,7 @@ import io
 import cv2
 import sys
 import os.path
+import datetime
 
 def detect_text(img, bbox):
     client = vision.ImageAnnotatorClient()
@@ -80,33 +81,83 @@ def cut_image(img, bbox, hmargin=0, vmargin=0):
     h += 2*vmargin
     return img[y:y + h, x:x + w]
 
-img = cv2.imread(sys.argv[1])
-labels = email_detector.deep_learning.my_model_inference.find_labels(img)
-print "Labels", labels
+def read_emails(img):
+    labels = email_detector.deep_learning.my_model_inference.find_labels(img)
+    merged_bbox = texts = None
+    if len(labels) == 2:
+        merged_bbox = diff_bboxes(*labels.keys())
+        texts = detect_text(img, merged_bbox)
+    return labels, merged_bbox, texts
 
-if len(labels) == 2:
-    merged_bbox = diff_bboxes(*labels.keys())
-    print "Merged", merged_bbox
+def draw_labels(out, labels):
+    for bbox, info in labels.iteritems():
+        p = email_detector.deep_learning.my_model_inference.bbox2pos(bbox)
+        cv2.rectangle(out, (p[0],p[1]), (p[2],p[3]), (0,0,255),2)
+        cv2.putText(out, ("%(class_name)s (%(score).2f" % info).encode("utf-8"), (p[0], p[1]), cv2.FONT_HERSHEY_COMPLEX, 3.0, (0, 0, 255), 2)
 
-out = img.copy()
-for bbox, info in labels.iteritems():
+def draw_merged_bbox(out, bbox):
+    if bbox is None: return
     p = email_detector.deep_learning.my_model_inference.bbox2pos(bbox)
-    cv2.rectangle(out, (p[0],p[1]), (p[2],p[3]), (0,0,255),2)
-    cv2.putText(out, ("%(class_name)s (%(score).2f" % info).encode("utf-8"), (p[0], p[1]), cv2.FONT_HERSHEY_COMPLEX, 3.0, (0, 0, 255), 2)
-
-if len(labels) == 2:
-    p = email_detector.deep_learning.my_model_inference.bbox2pos(merged_bbox)
     cv2.rectangle(out, (p[0],p[1]), (p[2],p[3]), (0,255,00),3)
 
-cv2.imwrite(os.path.splitext(sys.argv[1])[0] + ".out.1.jpg", out)
-
-if len(labels) == 2:
-    texts = detect_text(img, merged_bbox)
-    print "Texts", texts
-
+def draw_texts(out, texts):
+    if texts is None: return
     for bbox, txt in texts.iteritems():
         p = email_detector.deep_learning.my_model_inference.bbox2pos(bbox)
         cv2.rectangle(out, (p[0],p[1]), (p[2],p[3]), (255,0,0),2)
         cv2.putText(out, txt.encode("utf-8"), (p[0], p[1]), cv2.FONT_HERSHEY_COMPLEX, 3.0, (255, 0, 0), 2)
 
-    cv2.imwrite(os.path.splitext(sys.argv[1])[0] + ".out.2.jpg", out)
+def say(txt):
+    os.system("echo '%s' | festival --tts" % txt)
+
+if __name__ == '__main__':
+    if sys.argv[1:]:
+        img = cv2.imread(sys.argv[1])
+        labels, merged_bbox, texts = read_emails(img)
+        out = img.copy()
+        draw_labels(out, labels)
+        draw_merged_bbox(out, merged_bbox)
+        draw_texts(out, texts)
+        cv2.imwrite(os.path.splitext(sys.argv[1])[0] + ".out.jpg", out)
+    else:
+        cv2.namedWindow("image")
+
+        camera = cv2.VideoCapture(0)
+        for i in xrange(30):
+            camera.read()
+
+        say("We salute you")
+
+        spamtime = None
+
+        last_frametime = datetime.datetime.now()
+        while True:
+            retval, img = camera.read()
+            cv2.imshow('image', img)
+            cv2.waitKey(1)
+            labels, merged_bbox, texts = read_emails(img)
+
+            out = img.copy()
+            draw_labels(out, labels)
+            draw_merged_bbox(out, merged_bbox)
+            draw_texts(out, texts)
+            cv2.imshow('image', out)
+            cv2.waitKey(1)
+            
+            if len(labels) == 1:
+                say("Ready at your command")
+            if texts is not None:
+                if spamtime is None:
+                    spamtime = datetime.datetime.now()
+                    say("Ready to spam %s" % texts.values()[0])
+                elif spamtime - datetime.datetime.now() > datetime.timedelta(seconds=10):
+                    say("To late. Spamming %s in three, two, one. Spam." % texts.values()[0])
+                    spamtime = None
+            else:
+                if spamtime is not None:
+                    say("git revert. git revert. git revert.")
+                spamtime = None
+            
+            frametime = datetime.datetime.now()
+            print "Frametime %s seconds per frame" % (frametime - last_frametime).total_seconds()
+            last_frametime = frametime
