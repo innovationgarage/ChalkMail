@@ -7,21 +7,43 @@ import cv2
 import sys
 import os.path
 import datetime
+import threading
+
+class Interact(threading.Thread):
+    def __init__(self, *arg, **kw):
+        threading.Thread.__init__(self, *arg, **kw)
+        self.input = None
+        self.output = None
+        
+    def run(self):
+        cv2.namedWindow("image")
+        camera = cv2.VideoCapture(0)
+        for i in xrange(30):
+            camera.read()
+        while True:
+            retval, img = camera.read()
+            self.input = img
+            if self.output is not None:
+                cv2.imshow('image', self.output)
+            else:
+                cv2.imshow('image', self.input)
+            cv2.waitKey(1)
+
 
 def detect_text(img, bbox):
     client = vision.ImageAnnotatorClient()
 
     img = cut_image(img, bbox)
 
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    img = cv2.adaptiveThreshold(img,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C,cv2.THRESH_BINARY,51,5)
+    img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+
     rotate = bbox[2] < bbox[3]
     if rotate:
         # height > width, so rotate, clockwize just because
         img=cv2.transpose(img)
-        img=cv2.flip(img,flipCode=1)
-        
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    img = cv2.adaptiveThreshold(img,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C,cv2.THRESH_BINARY,51,5)
-    img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+        img=cv2.flip(img,flipCode=1)        
 
     cv2.imwrite("xyzzy.jpg", img)
     
@@ -81,14 +103,6 @@ def cut_image(img, bbox, hmargin=0, vmargin=0):
     h += 2*vmargin
     return img[y:y + h, x:x + w]
 
-def read_emails(img):
-    labels = email_detector.deep_learning.my_model_inference.find_labels(img)
-    merged_bbox = texts = None
-    if len(labels) == 2:
-        merged_bbox = diff_bboxes(*labels.keys())
-        texts = detect_text(img, merged_bbox)
-    return labels, merged_bbox, texts
-
 def draw_labels(out, labels):
     for bbox, info in labels.iteritems():
         p = email_detector.deep_learning.my_model_inference.bbox2pos(bbox)
@@ -107,6 +121,14 @@ def draw_texts(out, texts):
         cv2.rectangle(out, (p[0],p[1]), (p[2],p[3]), (255,0,0),2)
         cv2.putText(out, txt.encode("utf-8"), (p[0], p[1]), cv2.FONT_HERSHEY_COMPLEX, 3.0, (255, 0, 0), 2)
 
+def read_emails(img):
+    labels = email_detector.deep_learning.my_model_inference.find_labels(img)
+    merged_bbox = texts = None
+    if len(labels) == 2:
+        merged_bbox = diff_bboxes(*labels.keys())
+        texts = detect_text(img, merged_bbox)
+    return labels, merged_bbox, texts
+
 def say(txt):
     os.system("echo '%s' | festival --tts" % txt)
 
@@ -120,44 +142,49 @@ if __name__ == '__main__':
         draw_texts(out, texts)
         cv2.imwrite(os.path.splitext(sys.argv[1])[0] + ".out.jpg", out)
     else:
-        cv2.namedWindow("image")
+        try:
+            interact = Interact()
+            interact.start()
 
-        camera = cv2.VideoCapture(0)
-        for i in xrange(30):
-            camera.read()
+            say("We salute you")
 
-        say("We salute you")
+            spamtime = None
 
-        spamtime = None
+            last_frametime = datetime.datetime.now()
+            while True:
+                img = interact.input
+                if img is None: continue
+                print "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+                labels, merged_bbox, texts = read_emails(img)
 
-        last_frametime = datetime.datetime.now()
-        while True:
-            retval, img = camera.read()
-            cv2.imshow('image', img)
-            cv2.waitKey(1)
-            labels, merged_bbox, texts = read_emails(img)
+                out = img.copy()
+                draw_labels(out, labels)
+                draw_merged_bbox(out, merged_bbox)
+                draw_texts(out, texts)
+                interact.output = out
 
-            out = img.copy()
-            draw_labels(out, labels)
-            draw_merged_bbox(out, merged_bbox)
-            draw_texts(out, texts)
-            cv2.imshow('image', out)
-            cv2.waitKey(1)
-            
-            if len(labels) == 1:
-                say("Ready at your command")
-            if texts is not None:
-                if spamtime is None:
-                    spamtime = datetime.datetime.now()
-                    say("Ready to spam %s" % texts.values()[0])
-                elif spamtime - datetime.datetime.now() > datetime.timedelta(seconds=10):
-                    say("To late. Spamming %s in three, two, one. Spam." % texts.values()[0])
+                if len(labels) == 1:
+                    say("Ready at your command")
+                if texts is not None:
+                    if spamtime is None:
+                        spamtime = datetime.datetime.now()
+                        say("Ready to spam %s" % texts.values()[0])
+                    elif spamtime - datetime.datetime.now() > datetime.timedelta(seconds=10):
+                        say("To late. Spamming %s in three, two, one. Spam." % texts.values()[0])
+                        spamtime = None
+                else:
+                    if spamtime is not None:
+                        say("git revert. git revert. git revert.")
                     spamtime = None
-            else:
-                if spamtime is not None:
-                    say("git revert. git revert. git revert.")
-                spamtime = None
-            
-            frametime = datetime.datetime.now()
-            print "Frametime %s seconds per frame" % (frametime - last_frametime).total_seconds()
-            last_frametime = frametime
+
+                frametime = datetime.datetime.now()
+                print "Frametime %s seconds per frame" % (frametime - last_frametime).total_seconds()
+                last_frametime = frametime
+        except Exception, e:
+            import traceback
+            import sys
+            import pdb
+            print e
+            traceback.print_exc()
+            sys.last_traceback = sys.exc_info()[2]
+            pdb.pm()
