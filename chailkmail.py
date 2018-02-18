@@ -52,6 +52,26 @@ def merge_bboxes(*bboxes):
                              for b in bboxes])
     return email_detector.deep_learning.my_model_inference.pos2bbox((min(x1+x2), min(y1+y2), max(x1+x2), max(y1+y2)))
 
+def diff_bboxes(b1, b2):
+    p1 = email_detector.deep_learning.my_model_inference.bbox2pos(b1)
+    p2 = email_detector.deep_learning.my_model_inference.bbox2pos(b2)
+
+    # ix, iy are the coordinates of the box between b1 and b2
+    if p1[0] < p2[0]:
+        ix = (p1[2], p2[0])
+    else:
+        ix = (p2[2], p1[0])
+    if p1[1] < p2[1]:
+        iy = (p1[3], p2[1])
+    else:
+        iy = (p2[3], p1[1])
+
+    if abs(p1[0] - p2[0]) > abs(p1[1] - p2[1]):
+        # horizontal
+        return email_detector.deep_learning.my_model_inference.pos2bbox((ix[0], min(p1[1], p1[3], p2[1], p2[3]), ix[1], max(p1[1], p1[3], p2[1], p2[3])))
+    else:
+        return email_detector.deep_learning.my_model_inference.pos2bbox((min(p1[0], p1[2], p2[0], p2[2]), iy[0], max(p1[0], p1[2], p2[0], p2[2]), iy[1]))
+    
 def cut_image(img, bbox, hmargin=0, vmargin=0):
     (x, y, w, h) = bbox
     x -= hmargin
@@ -63,8 +83,10 @@ def cut_image(img, bbox, hmargin=0, vmargin=0):
 img = cv2.imread(sys.argv[1])
 labels = email_detector.deep_learning.my_model_inference.find_labels(img)
 print "Labels", labels
-merged_bbox = merge_bboxes(*labels.keys())
-print "Merged", merged_bbox
+
+if len(labels) == 2:
+    merged_bbox = diff_bboxes(*labels.keys())
+    print "Merged", merged_bbox
 
 out = img.copy()
 for bbox, info in labels.iteritems():
@@ -72,17 +94,19 @@ for bbox, info in labels.iteritems():
     cv2.rectangle(out, (p[0],p[1]), (p[2],p[3]), (0,0,255),2)
     cv2.putText(out, ("%(class_name)s (%(score).2f" % info).encode("utf-8"), (p[0], p[1]), cv2.FONT_HERSHEY_COMPLEX, 3.0, (0, 0, 255), 2)
 
-p = email_detector.deep_learning.my_model_inference.bbox2pos(merged_bbox)
-cv2.rectangle(out, (p[0],p[1]), (p[2],p[3]), (0,255,00),3)
+if len(labels) == 2:
+    p = email_detector.deep_learning.my_model_inference.bbox2pos(merged_bbox)
+    cv2.rectangle(out, (p[0],p[1]), (p[2],p[3]), (0,255,00),3)
 
 cv2.imwrite(os.path.splitext(sys.argv[1])[0] + ".out.1.jpg", out)
 
-texts = detect_text(img, merged_bbox)
-print "Texts", texts
+if len(labels) == 2:
+    texts = detect_text(img, merged_bbox)
+    print "Texts", texts
 
-for bbox, txt in texts.iteritems():
-    p = email_detector.deep_learning.my_model_inference.bbox2pos(bbox)
-    cv2.rectangle(out, (p[0],p[1]), (p[2],p[3]), (255,0,0),2)
-    cv2.putText(out, txt.encode("utf-8"), (p[0], p[1]), cv2.FONT_HERSHEY_COMPLEX, 3.0, (255, 0, 0), 2)
+    for bbox, txt in texts.iteritems():
+        p = email_detector.deep_learning.my_model_inference.bbox2pos(bbox)
+        cv2.rectangle(out, (p[0],p[1]), (p[2],p[3]), (255,0,0),2)
+        cv2.putText(out, txt.encode("utf-8"), (p[0], p[1]), cv2.FONT_HERSHEY_COMPLEX, 3.0, (255, 0, 0), 2)
 
-cv2.imwrite(os.path.splitext(sys.argv[1])[0] + ".out.2.jpg", out)
+    cv2.imwrite(os.path.splitext(sys.argv[1])[0] + ".out.2.jpg", out)
