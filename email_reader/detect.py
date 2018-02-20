@@ -606,8 +606,7 @@ def run_uri(args):
 if __name__ == '__main__':
     # Authentication
     import os
-    import config
-    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = config.secrets['SERVICE_ACCOUNT']
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "/home/saas9842/Desktop/IG/ChalkMail/email_reader/quasar-97d2c76292b2.json"
     
     parser = argparse.ArgumentParser(
         description=__doc__,
