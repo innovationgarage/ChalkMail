@@ -17,7 +17,7 @@ class Interact(threading.Thread):
         
     def run(self):
         cv2.namedWindow("image")
-        camera = cv2.VideoCapture(0)
+        camera = cv2.VideoCapture(1)
         for i in xrange(30):
             camera.read()
         while True:
@@ -107,7 +107,7 @@ def draw_labels(out, labels):
     for bbox, info in labels.iteritems():
         p = email_detector.deep_learning.my_model_inference.bbox2pos(bbox)
         cv2.rectangle(out, (p[0],p[1]), (p[2],p[3]), (0,0,255),2)
-        cv2.putText(out, ("%(class_name)s (%(score).2f" % info).encode("utf-8"), (p[0], p[1]), cv2.FONT_HERSHEY_COMPLEX, 3.0, (0, 0, 255), 2)
+        #cv2.putText(out, ("%(class_name)s (%(score).2f" % info).encode("utf-8"), (p[0], p[1]), cv2.FONT_HERSHEY_COMPLEX, 3.0, (0, 0, 255), 2)
 
 def draw_merged_bbox(out, bbox):
     if bbox is None: return
@@ -164,14 +164,19 @@ if __name__ == '__main__':
                 interact.output = out
 
                 if len(labels) == 1:
-                    say("Ready at your command")
+#                    say("Ready at your command")
+                    say("Are you trying to give me your email address?")
                 if texts is not None:
-                    if spamtime is None:
-                        spamtime = datetime.datetime.now()
-                        say("Ready to spam %s" % texts.values()[0])
-                    elif spamtime - datetime.datetime.now() > datetime.timedelta(seconds=10):
-                        say("To late. Spamming %s in three, two, one. Spam." % texts.values()[0])
-                        spamtime = None
+                    if len(texts.values())!=0:
+                        if spamtime is None:
+                            spamtime = datetime.datetime.now()
+                            say("Ready to spam %s" % texts.values()[0])
+                            print (texts.values()[0])
+                        elif spamtime - datetime.datetime.now() > datetime.timedelta(seconds=1):
+                            say("Too late. Spamming %s in three, two, one." % texts.values()[0])
+                            spamtime = None
+                    else:
+                        say("Did you fail to write your email address correctly?")
                 else:
                     if spamtime is not None:
                         say("git revert. git revert. git revert.")
@@ -187,4 +192,4 @@ if __name__ == '__main__':
             print e
             traceback.print_exc()
             sys.last_traceback = sys.exc_info()[2]
-            pdb.pm()
+#            pdb.pm()

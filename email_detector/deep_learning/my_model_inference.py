@@ -27,7 +27,9 @@ def parse_labelmap(path):
     labels = json.loads("[%s]" % re.sub(" *([^ :]*):", '"\\1":', f.read()).replace("'", '"').replace("item {\n", "{").replace("\n}", "}").strip().replace("\n", ","))
     return {label['id']: label for label in labels}
 
-PATH_TO_CKPT = os.path.join(os.path.dirname(__file__), 'my_faster_rcnn_resnet101_coco5214.pb/frozen_inference_graph.pb')
+PATH_TO_CKPT = os.path.join(os.path.dirname(__file__), 'my_faster_rcnn_resnet101_coco.pb/frozen_inference_graph.pb')
+#PATH_TO_CKPT = os.path.join(os.path.dirname(__file__), 'my_pipeline.pb/frozen_inference_graph.pb')
+#PATH_TO_CKPT = os.path.join(os.path.dirname(__file__), 'my_ssd_mobilenet_v1_coco.pb/frozen_inference_graph.pb')
 PATH_TO_LABELS = os.path.join(os.path.dirname(__file__), 'label_map.pbtxt')
 
 
@@ -37,8 +39,8 @@ def merge_boxes(boxes,
                 category_index,
                 instance_masks=None,
                 keypoints=None,
-                max_boxes_to_draw=20,
-                min_score_thresh=.95,
+                max_boxes_to_draw=100,
+                min_score_thresh=.7,
                 line_thickness=4):
   """Extracted from tensorflow.research.object_detection.utils.visualization_utils.visualize_boxes_and_labels_on_image_array"""
   box_to_class_map = collections.defaultdict(str)
