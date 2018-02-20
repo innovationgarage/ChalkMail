@@ -210,7 +210,7 @@ if __name__ == '__main__':
                         elif spamtime - datetime.datetime.now() > datetime.timedelta(seconds=1):
                             say("Too late. Spamming %s in three, two, one." % texts.values()[0])
 
-                            send_mail(["all@dualog.com"], "ChalkMail: Drawing from your meeting", "Please find the whiteboard photo attached", img)
+                            send_mail(["saghar@innovationgarage.no"], "ChalkMail: Drawing from your meeting", "Please find the whiteboard photo attached", img)
                             
                             spamtime = None
                     else:
