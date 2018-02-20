@@ -8,6 +8,13 @@ import sys
 import os.path
 import datetime
 import threading
+import smtplib
+from os.path import basename
+import email.mime.application
+import email.mime.multipart
+import email.mime.text
+import email.utils
+import config
 
 class Interact(threading.Thread):
     def __init__(self, *arg, **kw):
@@ -132,6 +139,34 @@ def read_emails(img):
 def say(txt):
     os.system("echo '%s' | festival --tts" % txt)
 
+def send_mail(send_to, subject, text, image):
+    assert isinstance(send_to, list)
+
+    msg = email.mime.multipart.MIMEMultipart()
+    msg['From'] = config.MAIL_FROM
+    msg['To'] = email.utils.COMMASPACE.join(send_to)
+    msg['Subject'] = subject
+
+    msg.attach(email.mime.text.MIMEText(text))
+
+
+    ret, data = cv2.imencode(".jpg", image)
+    data = data.tobytes()
+    part = email.mime.application.MIMEApplication(
+        data,
+        Name='image.jpg'
+    )
+    part['Content-Disposition'] = 'attachment; filename="image.jpg"'
+    msg.attach(part)
+
+    smtp = smtplib.SMTP_SSL(config.MAIL_SERVER, config.MAIL_PORT)
+    #smtp.set_debuglevel(1)
+    if config.MAIL_USER is not None:
+        smtp.login(config.MAIL_USER, config.MAIL_PASSWORD)
+    smtp.sendmail(config.MAIL_FROM, send_to, msg.as_string())
+    smtp.close()
+
+
 if __name__ == '__main__':
     if sys.argv[1:]:
         img = cv2.imread(sys.argv[1])
@@ -174,6 +209,9 @@ if __name__ == '__main__':
                             print (texts.values()[0])
                         elif spamtime - datetime.datetime.now() > datetime.timedelta(seconds=1):
                             say("Too late. Spamming %s in three, two, one." % texts.values()[0])
+
+                            send_mail(["all@dualog.com"], "ChalkMail: Drawing from your meeting", "Please find the whiteboard photo attached", img)
+                            
                             spamtime = None
                     else:
                         say("Did you fail to write your email address correctly?")

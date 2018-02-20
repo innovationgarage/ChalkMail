@@ -1,0 +1,5 @@
+MAIL_FROM="chalkmail@innovationgarage.no"
+MAIL_SERVER="smtp.zoho.com"
+MAIL_PORT=0
+MAIL_USER="chalkmail@innovationgarage.no"
+MAIL_PASSWORD="xxxxxxxx"
