@@ -91,9 +91,12 @@ def load_image_into_numpy_array(image):
       (im_height, im_width, 3)).astype(np.uint8)
 
 
-def find_labels(image):  
+sess = None
+def find_labels(image):
+  global sess
+  if sess is None:
+    sess = tf.Session(graph=detection_graph)
   with detection_graph.as_default():
-    with tf.Session(graph=detection_graph) as sess:
       image_tensor = detection_graph.get_tensor_by_name('image_tensor:0')
       detection_boxes = detection_graph.get_tensor_by_name('detection_boxes:0')
       detection_scores = detection_graph.get_tensor_by_name('detection_scores:0')
